@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cloned upstream reference repository
+dextra-roshambo-python/
+
+# Datasets & large binaries (optional: uncomment if dataset is too large for git)
+# dataset/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
