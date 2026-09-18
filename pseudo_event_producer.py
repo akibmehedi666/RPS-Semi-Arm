@@ -2,12 +2,20 @@
 Pseudo-Event Producer: Webcam Motion Masking Pipeline.
 Replaces DVS event camera stream with consecutive frame differencing + binary thresholding.
 Produces 64x64 uint8 binary motion event masks for model input.
+
+Optimized for:
+- Standard laptop USB webcams
+- Raspberry Pi 5 USB webcams (V4L2 backend, buffer size tuning, MJPG support)
 """
 
+import os
+import sys
+import glob
+import time
+import platform
+from typing import Tuple, Optional
 import cv2
 import numpy as np
-import time
-from typing import Tuple, Optional
 
 
 class PseudoEventProducer:
@@ -49,30 +57,83 @@ class PseudoEventProducer:
             self._init_camera()
 
     def _init_camera(self):
-        """Attempts to open OpenCV VideoCapture with configured exposure and dimensions."""
-        print(f"[PseudoEventProducer] Opening camera index {self.camera_index}...")
-        self.cap = cv2.VideoCapture(self.camera_index)
+        """
+        Initializes OpenCV VideoCapture with robust backend selection:
+        - Tries cv2.CAP_V4L2 on Linux / Raspberry Pi OS for low-overhead UVC capture
+        - Falls back to default backend if V4L2 fails or on macOS / Windows
+        - Configures 1-frame buffer to eliminate latency lag
+        - Sets MJPG format for 30fps USB bandwidth efficiency
+        - Provides actionable diagnostic error messages if camera cannot be opened
+        """
+        is_linux = platform.system() == "Linux"
         
-        if not self.cap.isOpened():
-            print(f"[PseudoEventProducer] Warning: Failed to open camera {self.camera_index}. Falling back to mock generator.")
-            self.mock_mode = True
-            return
+        print(f"[PseudoEventProducer] Initializing camera index {self.camera_index}...")
 
+        # 1. Attempt V4L2 explicitly on Linux / Raspberry Pi 5
+        if is_linux:
+            print(f"[PseudoEventProducer] Trying V4L2 backend (cv2.CAP_V4L2) on index {self.camera_index}...")
+            self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_V4L2)
+            if not self.cap.isOpened():
+                print(f"[PseudoEventProducer] V4L2 failed on index {self.camera_index}. Trying default CAP_ANY backend...")
+                self.cap = cv2.VideoCapture(self.camera_index)
+        else:
+            # Standard laptop backend on macOS / Windows
+            self.cap = cv2.VideoCapture(self.camera_index)
+
+        # 2. Check if camera successfully opened
+        if self.cap is None or not self.cap.isOpened():
+            detected_nodes = sorted(glob.glob("/dev/video*")) if is_linux else []
+            error_msg = (
+                f"\n{'='*70}\n"
+                f"  [PseudoEventProducer] ERROR: Failed to open camera at index {self.camera_index}!\n"
+                f"{'='*70}\n"
+                f"  System Platform: {platform.system()} ({platform.machine()})\n"
+                f"  Detected Video Nodes: {', '.join(detected_nodes) if detected_nodes else 'None detected'}\n\n"
+                f"  Troubleshooting Steps for Raspberry Pi 5 & Laptop USB Webcams:\n"
+                f"    1. Verify the USB webcam is securely plugged in: 'ls -l /dev/video*'\n"
+                f"    2. On Linux, USB cameras often register multiple device nodes (e.g., video0\n"
+                f"       for video stream and video1 for metadata). Try passing another index:\n"
+                f"       python3 live_predict.py --camera 2\n"
+                f"    3. Verify user permissions for video devices:\n"
+                f"       sudo usermod -a -G video $USER  (requires logout/login to apply)\n"
+                f"    4. Check if another process is locking the camera node:\n"
+                f"       fuser /dev/video{self.camera_index} or v4l2-ctl --list-devices\n"
+                f"    5. If testing without physical webcam hardware, run in mock mode:\n"
+                f"       python3 live_predict.py --mock\n"
+                f"{'='*70}\n"
+            )
+            print(error_msg, file=sys.stderr)
+            raise RuntimeError(f"Could not open camera at index {self.camera_index}. See troubleshooting steps above.")
+
+        # 3. Optimize buffer size: set buffer to 1 frame to prevent queuing latency
+        try:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
+
+        # 4. Request MJPG codec for high-throughput 30fps USB webcam streaming on Pi
+        try:
+            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+            self.cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+        except Exception:
+            pass
+
+        # 5. Set resolution and framerate
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
-        # Attempt to configure manual exposure to mitigate camera auto-gain noise
-        # 0.25 is manual mode in V4L2 backend on Linux, 1 or 3 depending on driver
+        # 6. Attempt manual exposure adjustment (mitigates auto-gain flicker)
         try:
             self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)  # typical value for low exposure/high speed
-        except Exception as e:
-            print(f"[PseudoEventProducer] Note: Auto-exposure adjustment not supported on this device ({e})")
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
+        except Exception:
+            pass
 
-        actual_w = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        actual_h = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        print(f"[PseudoEventProducer] Camera opened successfully at resolution {int(actual_w)}x{int(actual_h)}")
+        actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
+        print(f"[PseudoEventProducer] Camera connected successfully: {actual_w}x{actual_h} @ ~{actual_fps:.0f} FPS")
 
     def get_motion_mask(self) -> Tuple[bool, Optional[np.ndarray], Optional[np.ndarray]]:
         """
