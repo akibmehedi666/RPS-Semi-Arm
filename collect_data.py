@@ -162,15 +162,19 @@ def run_collection(args):
             # Handle active recording burst
             if burst_active and burst_counter < burst_total:
                 cname = burst_class
-                filename = f"{cname}_{int(time.time()*1000)}_{burst_counter:03d}.png"
-                save_path = os.path.join(args.dataset_dir, cname, filename)
-                cv2.imwrite(save_path, mask_64)
-                burst_counter += 1
-                counts[cname] += 1
+                nz_pixels = int(np.count_nonzero(mask_64))
+                # For gestures, avoid capturing empty frames before motion starts or after it finishes
+                is_valid_motion = (cname == "3_background") or (nz_pixels >= args.min_motion_pixels)
+                if is_valid_motion:
+                    filename = f"{cname}_{int(time.time()*1000)}_{burst_counter:03d}.png"
+                    save_path = os.path.join(args.dataset_dir, cname, filename)
+                    cv2.imwrite(save_path, mask_64)
+                    burst_counter += 1
+                    counts[cname] += 1
 
-                if burst_counter >= burst_total:
-                    burst_active = False
-                    print(f"[REC DONE] Finished burst for {cname}. Total: {counts[cname]}")
+                    if burst_counter >= burst_total:
+                        burst_active = False
+                        print(f"[REC DONE] Finished burst for {cname}. Total: {counts[cname]}")
 
             # Prepare visual display
             display = raw_frame.copy()
@@ -232,7 +236,8 @@ if __name__ == "__main__":
     parser.add_argument("--width", type=int, default=640, help="Camera width")
     parser.add_argument("--height", type=int, default=480, help="Camera height")
     parser.add_argument("--fps", type=int, default=30, help="Frame rate")
-    parser.add_argument("--threshold", type=int, default=30, help="Binary motion threshold value")
+    parser.add_argument("--threshold", type=int, default=18, help="Binary motion threshold value (15-20 recommended)")
+    parser.add_argument("--min_motion_pixels", type=int, default=15, help="Minimum active pixels to record a gesture frame (filters empty frames)")
     parser.add_argument("--burst_size", type=int, default=25, help="Number of frames per burst")
     parser.add_argument("--dataset_dir", type=str, default=DATASET_ROOT, help="Output dataset directory")
     parser.add_argument("--mock", action="store_true", help="Run in mock/simulated camera mode")

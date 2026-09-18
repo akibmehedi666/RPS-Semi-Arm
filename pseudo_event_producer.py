@@ -21,7 +21,7 @@ class PseudoEventProducer:
         width: int = 640,
         height: int = 480,
         fps: int = 30,
-        threshold_value: int = 30,
+        threshold_value: int = 18,
         target_size: Tuple[int, int] = (64, 64),
         blur_kernel: int = 5,
         use_roi_crop: bool = True,

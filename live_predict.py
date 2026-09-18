@@ -29,7 +29,7 @@ class InvincibleRoshamboEngine:
         width: int = 640,
         height: int = 480,
         fps: int = 60,
-        threshold_value: int = 30,
+        threshold_value: int = 18,
         window_length: int = 5,
         mock_mode: bool = False,
     ):
@@ -253,7 +253,7 @@ if __name__ == "__main__":
     parser.add_argument("--width", type=int, default=640, help="Webcam width")
     parser.add_argument("--height", type=int, default=480, help="Webcam height")
     parser.add_argument("--fps", type=int, default=60, help="Webcam FPS")
-    parser.add_argument("--threshold", type=int, default=30, help="Motion differencing threshold")
+    parser.add_argument("--threshold", type=int, default=18, help="Motion differencing threshold (15-20 recommended)")
     parser.add_argument("--window_length", type=int, default=5, help="Majority vote temporal window size")
     parser.add_argument("--mock", action="store_true", help="Simulate camera frames for testing")
     parser.add_argument("--benchmark", type=int, default=0, help="Run headless benchmark for N frames")
