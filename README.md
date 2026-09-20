@@ -89,9 +89,18 @@ roshambo/
 
 ## 🚀 Installation & Setup
 
-### A. Raspberry Pi 5 (ARM64, Debian 12 Bookworm)
+### 1. Clone the Repository
 
-#### 1. Install System Dependencies via `apt`
+```bash
+git clone https://github.com/akibmehedi666/RPS-Semi-Arm.git
+cd RPS-Semi-Arm
+```
+
+### 2. Dependencies & Environment
+
+#### A. Raspberry Pi 5 (ARM64, Debian 12 Bookworm)
+
+##### 1. Install System Dependencies via `apt`
 Debian Bookworm requires system-level libraries for OpenCV and Video4Linux2:
 ```bash
 sudo apt update
@@ -100,9 +109,8 @@ sudo apt install -y python3-pip python3-venv v4l-utils libgl1 libglib2.0-0 libgo
 
 > **Note on Debian Bookworm (PEP 668)**: Debian 12 Bookworm marks system Python as externally managed. Always install project packages inside a virtual environment.
 
-#### 2. Create Virtual Environment & Install Python Packages
+##### 2. Create Virtual Environment & Install Python Packages
 ```bash
-cd roshambo
 python3 -m venv venv
 source venv/bin/activate
 
@@ -116,7 +124,7 @@ pip install -r requirements.txt
 > - `onnxruntime`: Prebuilt aarch64 wheels on PyPI include optimized ARM NEON SIMD kernels for the Pi 5's Cortex-A76 cores.
 > - `opencv-python`: Prebuilt wheels on PyPI work out of the box with `libgl1` and `libglib2.0-0`. If running purely headless over SSH without X11/Wayland display, you can alternatively install `opencv-python-headless`.
 
-#### 3. USB Webcam Verification on the Pi
+##### 3. USB Webcam Verification on the Pi
 Check that your USB webcam is recognized by the V4L2 kernel driver:
 ```bash
 v4l2-ctl --list-devices
@@ -125,12 +133,21 @@ Typically, a USB webcam registers as `/dev/video0` (stream) and `/dev/video1` (m
 
 ---
 
-### B. Standard Laptop (Linux / macOS / Windows)
+#### B. Standard Laptop (Linux / macOS / Windows)
 
+**Windows (PowerShell / CMD):**
+```powershell
+python -m venv venv
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Linux / macOS:**
 ```bash
-cd roshambo
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
 pip install -r requirements.txt
 ```
@@ -170,9 +187,18 @@ python3 live_predict.py --model motion_model.pth --camera 0 --fps 30 --threshold
 ---
 
 ### Step 3: Collect Custom Gestures (Optional)
+Position your hand inside the green square ROI and make gesture movements while pressing the burst keys:
+
+**Windows:**
+```powershell
+python collect_data.py --camera 0 --threshold 18 --burst_size 25
+```
+
+**Linux / macOS:**
 ```bash
 python3 collect_data.py --camera 0 --threshold 18 --burst_size 25
 ```
+
 - Press **`r`** $\rightarrow$ Record 25-frame burst for **Rock**
 - Press **`p`** $\rightarrow$ Record 25-frame burst for **Paper**
 - Press **`s`** $\rightarrow$ Record 25-frame burst for **Scissors**
@@ -183,11 +209,50 @@ python3 collect_data.py --camera 0 --threshold 18 --burst_size 25
 
 ---
 
-### Step 4: Train the Model (Optional / On Laptop)
+### Step 4: Clean & Sanitize Dataset (Optional but Recommended)
+Filter out label leakage (e.g. closed fists in `1_paper`), empty frames, and duplicate sequential frames into `./dataset_quarantine`:
+
+**Windows:**
+```powershell
+python clean_dataset.py
+```
+
+**Linux / macOS:**
+```bash
+python3 clean_dataset.py
+```
+
+- **Simulation Mode (Dry Run)**: Test thresholds without moving files:
+  ```bash
+  python3 clean_dataset.py --dry_run
+  ```
+- **Restore**: Undo quarantine and restore all files:
+  ```bash
+  python3 clean_dataset.py --restore
+  ```
+
+---
+
+### Step 5: Train the RoshamboNet Model (Optional / On Laptop)
 Training is typically performed on a laptop/desktop machine before deploying `motion_model.pth` or `motion_model.onnx` to the Pi:
+
+**Windows:**
+```powershell
+python train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
+```
+
+**Linux / macOS:**
 ```bash
 python3 train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
 ```
+
+- **Optimizations**:
+  - `AdamW(lr=1e-3, weight_decay=1e-4)` + `CosineAnnealingLR(T_max=30)`
+  - Spatial augmentations: `RandomRotation(15)` + `RandomAffine(translate=(0.08, 0.08), scale=(0.95, 1.05))`
+  - Class-weighted loss (`scissors: 1.2` to reward fine finger detection)
+  - Saves the best checkpoint by validation accuracy to `motion_model.pth`
+  - Generates training loss/accuracy curve in `training_metrics.png`
+
 
 ---
 

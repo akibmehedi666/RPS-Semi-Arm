@@ -13,6 +13,7 @@ dextra-roshambo-python/
 
 # Datasets & large binaries (optional: uncomment if dataset is too large for git)
 # dataset/
+dataset_quarantine/
 
 # IDE files
 .vscode/
