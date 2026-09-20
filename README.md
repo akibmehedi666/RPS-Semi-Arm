@@ -141,6 +141,30 @@ python3 collect_data.py --camera 0 --threshold 18 --burst_size 25
 
 ---
 
+### Step 1.5: Clean & Sanitize Dataset (Optional but Recommended)
+Filter out label leakage (e.g. closed fists in `1_paper`), empty frames, and duplicate sequential frames into `./dataset_quarantine`:
+
+**Windows:**
+```powershell
+python clean_dataset.py
+```
+
+**Linux / macOS:**
+```bash
+python3 clean_dataset.py
+```
+
+- **Simulation Mode (Dry Run)**: Test thresholds without moving files:
+  ```bash
+  python3 clean_dataset.py --dry_run
+  ```
+- **Restore**: Undo quarantine and restore all files:
+  ```bash
+  python3 clean_dataset.py --restore
+  ```
+
+---
+
 ### Step 2: Train the RoshamboNet Model
 Train the 64×64 Tiny CNN on your dataset:
 
