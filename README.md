@@ -81,12 +81,31 @@ roshambo/
 ## 🚀 Installation & Setup
 
 ### 1. Clone the Repository
+
+**Windows (PowerShell / CMD):**
+```powershell
+git clone https://github.com/akibmehedi666/RPS-Semi-Arm.git
+cd RPS-Semi-Arm
+```
+
+**Linux / macOS:**
 ```bash
-git clone https://github.com/<your-username>/<your-repo-name>.git
-cd <your-repo-name>
+git clone https://github.com/akibmehedi666/RPS-Semi-Arm.git
+cd RPS-Semi-Arm
 ```
 
 ### 2. Set Up Virtual Environment & Dependencies
+
+**Windows (PowerShell / CMD):**
+```powershell
+python -m venv venv
+venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+**Linux / macOS:**
 ```bash
 python3 -m venv venv
 source venv/bin/activate
@@ -101,9 +120,17 @@ pip install -r requirements.txt
 
 ### Step 1: Collect Custom Gestures (Optional)
 Position your hand inside the green square ROI and make gesture movements while pressing the burst keys:
+
+**Windows:**
+```powershell
+python collect_data.py --camera 0 --threshold 18 --burst_size 25
+```
+
+**Linux / macOS:**
 ```bash
 python3 collect_data.py --camera 0 --threshold 18 --burst_size 25
 ```
+
 - Press **`r`** $\rightarrow$ Record 25-frame burst for **Rock**
 - Press **`p`** $\rightarrow$ Record 25-frame burst for **Paper**
 - Press **`s`** $\rightarrow$ Record 25-frame burst for **Scissors**
@@ -116,9 +143,17 @@ python3 collect_data.py --camera 0 --threshold 18 --burst_size 25
 
 ### Step 2: Train the RoshamboNet Model
 Train the 64×64 Tiny CNN on your dataset:
+
+**Windows:**
+```powershell
+python train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
+```
+
+**Linux / macOS:**
 ```bash
 python3 train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
 ```
+
 - **Optimizations**:
   - `AdamW(lr=1e-3, weight_decay=1e-4)` + `CosineAnnealingLR(T_max=30)`
   - Spatial augmentations: `RandomRotation(15)` + `RandomAffine(translate=(0.08, 0.08), scale=(0.95, 1.05))`
@@ -130,13 +165,28 @@ python3 train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --o
 
 ### Step 3: Run the Real-Time Invincible System
 Launch the real-time webcam inference system:
+
+**Windows:**
+```powershell
+python live_predict.py --camera 0 --fps 60 --model motion_model.pth --threshold 18
+```
+
+**Linux / macOS:**
 ```bash
 python3 live_predict.py --camera 0 --fps 60 --model motion_model.pth --threshold 18
 ```
+
 - **Controls**:
   - Press **`r`** to reset the win streak counter.
   - Press **`q`** or **`ESC`** to exit and display latency performance statistics.
 - **Headless / Benchmark Mode**:
+
+  **Windows:**
+  ```powershell
+  python live_predict.py --mock --benchmark 120
+  ```
+
+  **Linux / macOS:**
   ```bash
   python3 live_predict.py --mock --benchmark 120
   ```
