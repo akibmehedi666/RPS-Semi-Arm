@@ -1,4 +1,7 @@
-# ⚡ Ultra-Low Latency Invincible Rock-Paper-Scissors System
+# Ultra-Low Latency Invincible Rock-Paper-Scissors System
+### (RPS-Semi-Arm)
+
+> **Real-time computer-vision-driven Invincible Rock-Paper-Scissors system achieving sub-0.60ms CPU inference via neuromorphic pseudo-events and a custom PyTorch Tiny CNN.**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c.svg)](https://pytorch.org/)
@@ -6,231 +9,124 @@
 [![Inference Latency](https://img.shields.io/badge/Inference_Latency-%3C0.60ms_(CPU)-brightgreen.svg)]()
 [![Validation Accuracy](https://img.shields.io/badge/Val_Accuracy-93.92%25_(Real_Webcam)-success.svg)]()
 
-An ultra-low latency, computer-vision-driven **Invincible Rock-Paper-Scissors** system designed to run on a standard laptop RGB webcam. 
+---
 
-Adapted from the neuromorphic Event Camera (DVS) project [SensorsINI/dextra-roshambo-python](https://github.com/SensorsINI/dextra-roshambo-python), this project replaces specialized neuromorphic event camera hardware with an optimized **Pseudo-Event Motion Masking Pipeline** (Frame Differencing + Sensitive Binary Thresholding), paired with a pure PyTorch **RoshamboNet v2 Tiny CNN** (with BatchNorm) and a **5-frame temporal majority filter**.
+## 📌 Problem It Solves
+
+Traditional hand gesture recognition workflows built on heavy deep learning backbones or complex 3D skeletal landmark trackers (such as multi-stage vision models or Mediapipe pipelines) suffer from significant computational latency (typically 20–100+ ms per frame). Under real-time game constraints, this latency budget prevents immediate reaction to the onset of human motion.
+
+While specialized neuromorphic event cameras (Dynamic Vision Sensors / DVS) capture microsecond-level motion changes, they demand expensive, proprietary hardware inaccessible to standard laptops.
+
+**RPS-Semi-Arm** bridges this gap by replacing specialized event hardware with an optimized **Pseudo-Event Motion Masking Pipeline** that extracts noise-free temporal motion differentials ($|I_t - I_{t-1}|$ + binary thresholding) directly from standard 30–60 FPS RGB webcam feeds. Paired with `RoshamboNet v2`—a custom 115K-parameter PyTorch Tiny CNN with batch normalization—the system executes inference in **~0.60 ms on a standard laptop CPU**, predicting user gesture onset and countering it before the human hand finishes moving.
 
 ---
 
-## 🎯 Key Features
+## ✨ Features
 
-- **Pseudo-Event Motion Pipeline**: Replaces neuromorphic DVS event streams with consecutive frame differencing ($|I_t - I_{t-1}|$) and calibrated binary thresholding (`threshold=18`) to isolate sharp, noise-free motion trails in real time.
-- **Sub-1ms CPU Inference**: Powered by `RoshamboNet v2`, a lightweight 64×64 Tiny CNN ($115,172$ parameters with `BatchNorm2d` and `Dropout(0.1)`) that completes inference in **~0.60 ms on standard CPU** without requiring a GPU.
-- **Motion Activity Curation**: Automated filtering (`min_gesture_pixels=15`) cleans zero-motion frames from gesture classes during bursts, ensuring clean label boundaries and preventing still-hand frames from confusing gestures with background.
-- **Invincible Counter Logic**: Immediately predicts user gesture onset and outputs the winning counter-move:
-  - ✊ **Rock** $\rightarrow$ AI plays ✋ **Paper** *(Paper covers Rock)*
-  - ✋ **Paper** $\rightarrow$ AI plays ✌️ **Scissors** *(Scissors cuts Paper)*
-  - ✌️ **Scissors** $\rightarrow$ AI plays ✊ **Rock** *(Rock crushes Scissors)*
-  - ⏳ **Background** $\rightarrow$ AI stays on **Standby**
-- **5-Frame Temporal Majority Filter**: Ported from the original research repository to prevent transient flicker and ensure rock-solid prediction stability.
-- **Dual Display HUD**: Live webcam feed showing prediction confidence, AI counter announcement, streak tracking, and a scaled picture-in-picture preview of the 64×64 motion mask.
-
----
-
-## 🏗️ Architecture Pipeline
-
-```
-  Standard Laptop Webcam (RGB 30–60 FPS)
-                   │
-                   ▼
-  Grayscale Conversion + Gaussian Smoothing
-                   │
-                   ▼
-  Temporal Differencing: Diff = |Frame_t - Frame_t-1|
-                   │
-                   ▼
-  Binary Thresholding (cv2.threshold @ 18 -> Sharp Motion Trail)
-                   │
-                   ▼
-  Center ROI Crop & Resize to 64x64 Grayscale Tensor [1, 1, 64, 64]
-                   │
-                   ▼
-  PyTorch RoshamboNet v2 Tiny CNN with BatchNorm (0.60 ms CPU Inference)
-                   │
-                   ▼
-  5-Frame Temporal Majority Filter (voter)
-                   │
-                   ▼
-  Invincible Counter Decision Engine
-```
+- **Neuromorphic Pseudo-Event Motion Pipeline:** Simulates event-camera representations from consumer RGB webcams using consecutive frame differencing ($|I_t - I_{t-1}|$) and calibrated binary thresholding (`threshold=18`), isolating clean motion contours and eliminating static background interference.
+- **Sub-Millisecond CPU Inference:** Powered by `RoshamboNet v2`, a custom 64×64 Tiny CNN ($115,172$ parameters with `BatchNorm2d` and `Dropout(0.1)`), achieving an average inference latency of **0.60 ms on standard CPU** without requiring a GPU.
+- **Automated Motion Activity Curation:** Includes motion-threshold filtering (`min_motion_pixels=15` / `clean_dataset.py`) to purge zero-motion frames from gesture bursts, preventing stationary hands from corrupting gesture boundaries.
+- **5-Frame Temporal Majority Voting Filter:** Stabilizes raw classification logits across consecutive frames, eliminating transient prediction flicker and ensuring rock-solid game state transitions.
+- **Invincible Counter Logic:** Predicts human gesture onset and renders the winning counter-move instantly:
+  - ✊ **Rock** $\rightarrow$ AI counters with ✋ **Paper** *(Paper covers Rock)*
+  - ✋ **Paper** $\rightarrow$ AI counters with ✌️ **Scissors** *(Scissors cuts Paper)*
+  - ✌️ **Scissors** $\rightarrow$ AI counters with ✊ **Rock** *(Rock crushes Scissors)*
+  - ⏳ **Background / Still Hand** $\rightarrow$ AI stays on **Standby**
+- **Dual Display HUD:** OpenCV visualizer displaying live prediction probabilities, AI counter announcements, win streak counters, and a real-time picture-in-picture preview of the 64×64 motion mask.
 
 ---
 
-## 📂 Project Structure
+## 🛠️ Tech Stack
 
-```
-roshambo/
-├── model.py                 # RoshamboNet v2 (BatchNorm) & MajorityVote filter
-├── pseudo_event_producer.py # Webcam motion differencing & 64x64 mask generation (thresh=18)
-├── collect_data.py          # Interactive dataset generator with burst & motion filtering
-├── train.py                 # Optimized training pipeline (AdamW, CosineAnnealing, Augmentations)
-├── live_predict.py          # Real-time inference engine with HUD visualizer
-├── motion_model.pth         # Trained model weights (93.92% real-world validation accuracy)
-├── training_metrics.png     # Loss and accuracy progression curve
-├── requirements.txt         # Python dependencies
-├── .gitignore               # Ignored virtual environments, caches, and temp files
-└── dataset/                 # 64x64 binary motion event masks
-    ├── 0_rock/
-    ├── 1_paper/
-    ├── 2_scissors/
-    └── 3_background/
-```
+- **Core Language:** Python 3.10+
+- **Deep Learning Framework:** PyTorch 2.0+ (`torch`, `torchvision`)
+- **Computer Vision & Video I/O:** OpenCV 4.8+ (`opencv-python`)
+- **Scientific Computing & Visualization:** NumPy, Matplotlib
 
 ---
 
-## 🚀 Installation & Setup
+## 📸 Screenshots
 
-### 1. Clone the Repository
+> _Visual demonstration of the live gameplay HUD and the training convergence curve._
 
-**Windows (PowerShell / CMD):**
-```powershell
-git clone https://github.com/akibmehedi666/RPS-Semi-Arm.git
-cd RPS-Semi-Arm
-```
+| Live Gameplay HUD & Picture-in-Picture Motion Mask | Training Metrics & Loss Progression |
+| :---: | :---: |
+| ![Live Gameplay HUD Placeholder](docs/screenshots/live_gameplay_hud.png)<br>_Placeholder: Real-time OpenCV HUD with gesture confidence & PIP mask_ | ![Training Metrics](training_metrics.png)<br>_Training loss and accuracy convergence (AdamW + CosineAnnealing)_ |
 
-**Linux / macOS:**
+---
+
+## 🚀 How to Run
+
+### 1. Clone & Set Up Environment
+
 ```bash
+# Clone the repository
 git clone https://github.com/akibmehedi666/RPS-Semi-Arm.git
 cd RPS-Semi-Arm
-```
 
-### 2. Set Up Virtual Environment & Dependencies
-
-**Windows (PowerShell / CMD):**
-```powershell
+# Create and activate virtual environment
 python -m venv venv
-venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-**Linux / macOS:**
-```bash
-python3 -m venv venv
+# Windows (PowerShell / CMD)
+.\venv\Scripts\Activate.ps1
+# Linux / macOS
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
----
+### 2. Run the Real-Time Invincible System
 
-## 🎮 How to Run
-
-### Step 1: Collect Custom Gestures (Optional)
-Position your hand inside the green square ROI and make gesture movements while pressing the burst keys:
-
-**Windows:**
-```powershell
-python collect_data.py --camera 0 --threshold 18 --burst_size 25
-```
-
-**Linux / macOS:**
 ```bash
-python3 collect_data.py --camera 0 --threshold 18 --burst_size 25
-```
-
-- Press **`r`** $\rightarrow$ Record 25-frame burst for **Rock**
-- Press **`p`** $\rightarrow$ Record 25-frame burst for **Paper**
-- Press **`s`** $\rightarrow$ Record 25-frame burst for **Scissors**
-- Press **`b`** $\rightarrow$ Record 25-frame burst for **Background**
-- Press **`q`** or **`ESC`** $\rightarrow$ Exit collection
-
-*(Note: `--min_motion_pixels 15` automatically ignores blank frames before motion begins, ensuring high dataset quality.)*
-
----
-
-### Step 1.5: Clean & Sanitize Dataset (Optional but Recommended)
-Filter out label leakage (e.g. closed fists in `1_paper`), empty frames, and duplicate sequential frames into `./dataset_quarantine`:
-
-**Windows:**
-```powershell
-python clean_dataset.py
-```
-
-**Linux / macOS:**
-```bash
-python3 clean_dataset.py
-```
-
-- **Simulation Mode (Dry Run)**: Test thresholds without moving files:
-  ```bash
-  python3 clean_dataset.py --dry_run
-  ```
-- **Restore**: Undo quarantine and restore all files:
-  ```bash
-  python3 clean_dataset.py --restore
-  ```
-
----
-
-### Step 2: Train the RoshamboNet Model
-Train the 64×64 Tiny CNN on your dataset:
-
-**Windows:**
-```powershell
-python train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
-```
-
-**Linux / macOS:**
-```bash
-python3 train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
-```
-
-- **Optimizations**:
-  - `AdamW(lr=1e-3, weight_decay=1e-4)` + `CosineAnnealingLR(T_max=30)`
-  - Spatial augmentations: `RandomRotation(15)` + `RandomAffine(translate=(0.08, 0.08), scale=(0.95, 1.05))`
-  - Class-weighted loss (`scissors: 1.2` to reward fine finger detection)
-  - Saves the best checkpoint by validation accuracy to `motion_model.pth`
-  - Generates training loss/accuracy curve in `training_metrics.png`
-
----
-
-### Step 3: Run the Real-Time Invincible System
-Launch the real-time webcam inference system:
-
-**Windows:**
-```powershell
+# Launch live webcam inference with 60 FPS target
 python live_predict.py --camera 0 --fps 60 --model motion_model.pth --threshold 18
 ```
 
-**Linux / macOS:**
+- **Controls:**
+  - Press **`r`** $\rightarrow$ Reset win streak counter.
+  - Press **`q`** or **`ESC`** $\rightarrow$ Exit and print latency benchmarks.
+
+### 3. Headless Benchmark Mode
+
+To test raw inference latency and pipeline throughput without an active camera window:
+
 ```bash
-python3 live_predict.py --camera 0 --fps 60 --model motion_model.pth --threshold 18
+python live_predict.py --mock --benchmark 120
 ```
 
-- **Controls**:
-  - Press **`r`** to reset the win streak counter.
-  - Press **`q`** or **`ESC`** to exit and display latency performance statistics.
-- **Headless / Benchmark Mode**:
+### 4. Optional: Data Collection & Model Training
 
-  **Windows:**
-  ```powershell
-  python live_predict.py --mock --benchmark 120
-  ```
+```bash
+# Step A: Collect custom gesture bursts (25 frames per burst)
+python collect_data.py --camera 0 --threshold 18 --burst_size 25
 
-  **Linux / macOS:**
-  ```bash
-  python3 live_predict.py --mock --benchmark 120
-  ```
+# Step B: Sanitize and quarantine zero-motion or noisy samples
+python clean_dataset.py
+
+# Step C: Train RoshamboNet v2 Tiny CNN (30 epochs with Cosine Annealing)
+python train.py --epochs 30 --batch_size 32 --lr 1e-3 --dataset_dir dataset --output_model motion_model.pth
+```
 
 ---
 
 ## 📊 Benchmark & Performance Results
 
 ### CPU Inference Latency (Standard Laptop CPU)
-| Metric | Result | Target Budget | Status |
-| :--- | :--- | :--- | :--- |
+
+| Latency Metric | Result | Target Budget | Status |
+| :--- | :---: | :---: | :---: |
 | **Mean Inference Time** | **0.60 ms** | $< 3.0 \text{ ms}$ | **PASSED** |
-| **Median Inference Time**| **0.57 ms** | $< 3.0 \text{ ms}$ | **PASSED** |
-| **95th Percentile** | **0.84 ms** | $< 5.0 \text{ ms}$ | **PASSED** |
-| **End-to-End Loop Rate** | **30–60 FPS** | $\ge 30 \text{ FPS}$ | **PASSED** |
+| **Median Inference Time** | **0.57 ms** | $< 3.0 \text{ ms}$ | **PASSED** |
+| **95th Percentile Latency** | **0.84 ms** | $< 5.0 \text{ ms}$ | **PASSED** |
+| **End-to-End Frame Rate** | **30–60 FPS** | $\ge 30 \text{ FPS}$ | **PASSED** |
 
-### Real Webcam Validation Accuracy (3,459 Curated Samples)
-- **Overall Validation Accuracy**: **93.92%**
+### Validation Performance (3,459 Curated Real-World Samples)
 
-#### Detailed Classification Report
+- **Overall Validation Accuracy:** **93.92%**
+
+#### Detailed Classification Metrics
+
 ```
               precision    recall  f1-score   support
 
@@ -245,6 +141,7 @@ weighted avg       0.94      0.94      0.94       691
 ```
 
 #### Confusion Matrix
+
 ```
                  Predicted Rock  Predicted Paper  Predicted Scissors  Predicted Background
 True Rock             174               4                 8                    4
@@ -255,7 +152,29 @@ True Background         0               0                 2                  153
 
 ---
 
+## 📂 Project Structure
+
+```
+RPS-Semi-Arm/
+├── model.py                 # RoshamboNet v2 Tiny CNN architecture & MajorityVote filter
+├── pseudo_event_producer.py # Webcam motion differencing & 64x64 mask generation (thresh=18)
+├── live_predict.py          # Real-time inference engine with OpenCV HUD visualizer
+├── collect_data.py          # Interactive dataset generator with motion burst filtering
+├── clean_dataset.py         # Automated dataset sanitizer and quarantine script
+├── train.py                 # Training pipeline (AdamW, CosineAnnealing, spatial augmentations)
+├── motion_model.pth         # Pytorch weights for RoshamboNet v2 (93.92% val accuracy)
+├── training_metrics.png     # Loss and accuracy progression chart
+├── requirements.txt         # Pinned Python dependencies
+└── dataset/                 # 64x64 binary pseudo-event motion masks
+    ├── 0_rock/
+    ├── 1_paper/
+    ├── 2_scissors/
+    └── 3_background/
+```
+
+---
+
 ## 📜 Acknowledgements & References
 
-- Based on the neuromorphic event-camera research by **Sensors Group, INI (Institute of Neuroinformatics, UZH-ETH Zurich)**: [SensorsINI/dextra-roshambo-python](https://github.com/SensorsINI/dextra-roshambo-python).
+- Adapted from neuromorphic event camera research by **Sensors Group, INI (Institute of Neuroinformatics, UZH-ETH Zurich)**: [SensorsINI/dextra-roshambo-python](https://github.com/SensorsINI/dextra-roshambo-python).
 - Original Authors: Tobi Delbruck et al.
